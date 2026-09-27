@@ -1,0 +1,79 @@
+/* ============================================================
+   BLUE SQUARE — Login Page Styles
+   ============================================================ */
+
+QWidget#login_page {
+    background-color: #1e1e1e;
+}
+
+QLabel#app_title {
+    font-size: 32px;
+    font-weight: 800;
+    color: #007acc;
+    letter-spacing: 2px;
+}
+
+QLabel#app_subtitle {
+    font-size: 14px;
+    color: #808080;
+    letter-spacing: 2px;
+}
+
+QFrame#login_card {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 12px;
+    padding: 30px;
+}
+
+QLabel#field_label {
+    font-size: 12px;
+    color: #808080;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+QLineEdit#login_input {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #cccccc;
+    min-height: 30px;
+}
+
+QLineEdit#login_input:focus {
+    border-color: #007acc;
+}
+
+QPushButton#login_button {
+    background-color: #007acc;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 700;
+    min-height: 36px;
+    letter-spacing: 1px;
+}
+
+QPushButton#login_button:hover {
+    background-color: #0062a3;
+}
+
+QPushButton#login_button:pressed {
+    background-color: #004b7c;
+}
+
+QLabel#error_label {
+    color: #be3a3a;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QLabel#version_label {
+    color: #555555;
+}

@@ -1,0 +1,88 @@
+/* ============================================================
+   BLUE SQUARE — Users Page Styles
+   ============================================================ */
+
+QWidget#users_page {
+    background-color: #252526;
+}
+
+QLabel#page_title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #007acc;
+    letter-spacing: 1px;
+}
+
+QFrame#action_bar {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+/* using default buttons with accent_id where possible, but if not we rewrite */
+QPushButton#add_user_btn {
+    background-color: #458b53;
+    color: #ffffff;
+    font-weight: 700;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#add_user_btn:hover {
+    background-color: #32663c;
+}
+
+QPushButton#edit_user_btn {
+    background-color: #333333;
+    color: #cccccc;
+    font-weight: 700;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#edit_user_btn:hover {
+    background-color: #454545;
+    border-color: #007acc;
+}
+
+QPushButton#delete_user_btn {
+    background-color: #be3a3a;
+    color: #ffffff;
+    font-weight: 700;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#delete_user_btn:hover {
+    background-color: #a62828;
+}
+
+QPushButton#perm_btn {
+    background-color: #333333;
+    color: #cccccc;
+    font-weight: 700;
+    border: 1px solid #007acc;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#perm_btn:hover {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
+QPushButton#users_button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-weight: 700;
+}
+QPushButton#users_button:hover {
+    background-color: #0062a3;
+}

@@ -1,0 +1,25 @@
+{
+  "camera_exposure_us": 500.0,
+  "locator_confidence": 0.0,
+  "ocr_confidence": 0.0,
+  "threshold_parameter": 0,
+  "grayscale_parameter": 70,
+  "date_contrast": 1.0,
+  "pharma_contrast": 1.0,
+  "labels_contrast": 1.0,
+  "labels_confidence": 0.0,
+  "labels_rotation": 90,
+  "date_rotation": 90,
+  "pharma_rotation": 0,
+  "labels_grayscale": 100,
+  "date_grayscale": 70,
+  "labels_threshold": 0,
+  "date_threshold": 0,
+  "expected_values": {
+    "LOT": "03729",
+    "MFG": "01-2026",
+    "EXP": "01-2029",
+    "PHARMA": "1682",
+    "LABELS": "LOT: MFG: EXP:"
+  }
+}

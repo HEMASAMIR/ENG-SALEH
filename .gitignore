@@ -1,0 +1,25 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller / Build artifacts
+build/
+dist/
+dist_backup/
+dist_backup_latest/
+
+# Local backups and old files
+backup/
+old/
+old2/
+
+# Redis dump and temp logs
+*.rdb
+*.log

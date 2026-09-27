@@ -1,0 +1,61 @@
+/* ============================================================
+   BLUE SQUARE — Setting Page Styles
+   ============================================================ */
+
+QWidget#setting_page {
+    background-color: #252526;
+}
+
+QLabel#page_title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #007acc;
+    letter-spacing: 1px;
+}
+
+QFrame#setting_card {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+QLabel#card_title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #007acc;
+    margin-bottom: 8px;
+}
+
+QLabel#counter_value {
+    font-family: "Consolas", monospace;
+    font-size: 36px;
+    font-weight: bold;
+    color: #2ECC71;
+}
+
+QLineEdit#setting_input {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+QLineEdit#setting_input:focus {
+    border-color: #007acc;
+}
+
+QPushButton#apply_button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-weight: 700;
+}
+
+QPushButton#apply_button:hover {
+    background-color: #0062a3;
+}

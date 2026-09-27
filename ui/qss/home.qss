@@ -1,0 +1,216 @@
+/* ============================================================
+   BLUE SQUARE — Home Page Styles
+   ============================================================ */
+
+QWidget#home_page {
+    background-color: #252526;
+}
+
+QFrame#camera_frame {
+    background-color: #1e1e1e;
+    border: 2px solid #3e3e42;
+    border-radius: 6px;
+}
+
+QLabel#camera_placeholder {
+    color: #808080;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+QFrame#date_roi_frame, QFrame#pharma_roi_frame, QFrame#locator_roi_frame {
+    background-color: #1e1e1e;
+    border: 2px solid #3e3e42;
+    border-radius: 6px;
+}
+
+QLabel#placeholder_text {
+    color: #808080;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+QGroupBox#input_group {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    margin-top: 6px;
+    padding: 4px 10px;
+    padding-top: 14px;
+    font-weight: 700;
+    color: #007acc;
+}
+
+QLabel#input_label {
+    font-size: 12px;
+    color: #808080;
+    font-weight: 600;
+}
+
+QLineEdit#home_input {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+QLineEdit#home_input:focus {
+    border-color: #007acc;
+}
+
+/* Button Styles synced with Recipe Page */
+QPushButton#success_button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: 700;
+    font-size: 12px;
+}
+QPushButton#success_button:hover {
+    background-color: #0062a3;
+}
+
+QPushButton#roi_button {
+    background-color: #333333;
+    color: #cccccc;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-weight: 600;
+    font-size: 11px;
+}
+QPushButton#roi_button:checked {
+    background-color: #007acc;
+    color: white;
+    border-color: #007acc;
+}
+QPushButton#roi_button:hover {
+    background-color: #444444;
+}
+
+QPushButton#adjust_button {
+    background-color: #333333;
+    color: white;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 14px;
+}
+QPushButton#adjust_button:hover {
+    background-color: #444444;
+}
+
+QSlider#contrast_slider::groove:horizontal {
+    border: 1px solid #3e3e42;
+    height: 6px;
+    background: #1e1e1e;
+    border-radius: 3px;
+}
+
+QSlider#contrast_slider::handle:horizontal {
+    background: #007acc;
+    border: 1px solid #0062a3;
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+
+QSlider#contrast_slider::sub-page:horizontal {
+    background: #007acc;
+    border-radius: 3px;
+}
+
+QSlider#locator_conf_slider::groove:horizontal, QSlider#ocr_conf_slider::groove:horizontal, QSlider#labels_conf_slider::groove:horizontal {
+    border: 1px solid #3e3e42;
+    height: 6px;
+    background: #1e1e1e;
+    border-radius: 3px;
+}
+
+QSlider#locator_conf_slider::handle:horizontal, QSlider#ocr_conf_slider::handle:horizontal, QSlider#labels_conf_slider::handle:horizontal {
+    background: #00bcd4;
+    border: 1px solid #0097a7;
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+
+QSlider#locator_conf_slider::sub-page:horizontal, QSlider#ocr_conf_slider::sub-page:horizontal, QSlider#labels_conf_slider::sub-page:horizontal {
+    background: #00bcd4;
+    border-radius: 3px;
+}
+
+QLabel#contrast_value {
+    color: #cccccc;
+    font-weight: 700;
+    min-width: 44px;
+}
+
+QComboBox {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #ffffff;
+}
+QComboBox:hover {
+    border-color: #007acc;
+}
+
+QLabel#roi_box_title {
+    font-weight: bold;
+    color: #4a90e2;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+QFrame#roi_controls_frame {
+    background: transparent;
+    border: none;
+}
+
+/* ROI Canvas Styling */
+QLabel#date_canvas, QLabel#pharma_canvas, QLabel#locator_canvas {
+    background-color: #050510;
+    border: 1px solid #1a1a3a;
+    border-radius: 4px;
+    min-height: 85px;
+}
+
+/* Scroll Area for ROI boxes */
+QScrollArea#roi_scroll_area {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+}
+
+QWidget#roi_scroll_content {
+    background: transparent;
+    background-color: transparent;
+}
+
+QScrollArea#roi_scroll_area QScrollBar:vertical {
+    border: none;
+    background: #1e1e1e;
+    width: 6px;
+    margin: 0px;
+    border-radius: 3px;
+}
+
+QScrollArea#roi_scroll_area QScrollBar::handle:vertical {
+    background: #3e3e42;
+    min-height: 20px;
+    border-radius: 3px;
+}
+
+QScrollArea#roi_scroll_area QScrollBar::handle:vertical:hover {
+    background: #007acc;
+}
+
+QScrollArea#roi_scroll_area QScrollBar::add-line:vertical,
+QScrollArea#roi_scroll_area QScrollBar::sub-line:vertical {
+    height: 0px;
+}

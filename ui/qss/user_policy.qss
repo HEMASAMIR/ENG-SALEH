@@ -1,0 +1,62 @@
+/* ============================================================
+   BLUE SQUARE — User Policy Page Styles
+   ============================================================ */
+
+QWidget#user_policy_page {
+    background-color: #252526;
+}
+
+QLabel#page_title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #007acc;
+    letter-spacing: 1px;
+}
+
+QFrame#policy_card {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 8px;
+    padding: 30px;
+}
+
+QLabel#card_title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #007acc;
+    margin-bottom: 15px;
+}
+
+QLabel#field_label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #808080;
+    margin-top: 10px;
+}
+
+QLineEdit#policy_input {
+    background-color: #1e1e1e;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+QLineEdit#policy_input:focus {
+    border-color: #007acc;
+}
+
+QPushButton#submit_button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 24px;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+QPushButton#submit_button:hover {
+    background-color: #0062a3;
+}

@@ -1,0 +1,49 @@
+/* ============================================================
+   BLUE SQUARE — Audit Trail Page Styles
+   ============================================================ */
+
+QWidget#audit_trail_page {
+    background-color: #252526;
+}
+
+QLabel#page_title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #007acc;
+    letter-spacing: 1px;
+}
+
+QFrame#action_bar {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+QPushButton#export_audit_btn {
+    background-color: #333333;
+    color: #cccccc;
+    font-weight: 700;
+    border: 1px solid #007acc;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#export_audit_btn:hover {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
+QPushButton#refresh_btn {
+    background-color: #333333;
+    color: #cccccc;
+    font-weight: 700;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+
+QPushButton#refresh_btn:hover {
+    background-color: #454545;
+    border-color: #007acc;
+}
