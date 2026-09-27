@@ -1,4 +1,4 @@
-﻿"""
+"""
 Fast print verification (OCV / golden-sample comparison), < 25 ms per carton.
 
 Teach  : the full OCR inspector (AutoInspector, ~1 s) reads a good carton and confirms
@@ -25,7 +25,8 @@ import cv2
 import numpy as np
 
 from core.pharmacode_locator import locate_and_decode
-from core.auto_inspector import blot_scan, FIELDS
+from core.auto_inspector import blot_scan, FIELDS, normalize_expected
+from core.font_classifier import FontLibrary, normalize_box, glyph_mask
 
 COARSE = 4          # local search downscale factor (print height search)
 COARSE_FULL = 8     # whole-frame search downscale factor
@@ -39,6 +40,8 @@ class GoldenLine:
     halves: List[Tuple[Tuple[int, int, int, int], np.ndarray]] = field(default_factory=list)
     windows: List[Tuple[Tuple[int, int, int, int], np.ndarray]] = field(default_factory=list)
     chars: List[str] = field(default_factory=list)    # character(s) each window mostly covers
+    char_cols: List[Tuple[int, int]] = field(default_factory=list)   # exact columns of each character
+    glyph_rows: Tuple[int, int] = (0, 0)              # rows occupied by the characters of the line
 
 
 @dataclass
@@ -68,6 +71,9 @@ class VerifyResult:
     pharma_code: Optional[int] = None
     defects: List[dict] = field(default_factory=list)
     timings_ms: Dict[str, float] = field(default_factory=dict)
+    char_crops: Dict[str, list] = field(default_factory=dict)   # field -> [(golden char, grey crop, ink thr)]
+    line_crops: Dict[str, np.ndarray] = field(default_factory=dict)  # field -> aligned grey line (audit OCR)
+    escalated: Dict[str, str] = field(default_factory=dict)          # field -> value read by the OCR confirmation
 
 
 def _rotate(gray: np.ndarray, rotation: int) -> np.ndarray:
@@ -129,6 +135,88 @@ def _rot_region(gray: np.ndarray, rotation: int, x1: int, y1: int, x2: int, y2: 
     return crop, (x1, y1)
 
 
+def _char_columns(ink_all: np.ndarray, ry1: int, ry2: int, gx1: int, gx2: int) -> Tuple[int, int]:
+    """
+    Column range of the character expected at [gx1, gx2): ink columns in the middle rows of the
+    line cell, the group nearest the expected centre. Falls back to the expected columns.
+    """
+    h = ry2 - ry1
+    # the characters fill ~80% of the line cell: rows 12-88% hold the whole character
+    # (its top / bottom bars join the strokes) but not the neighbouring lines
+    a, b = ry1 + int(0.12 * h), ry1 + max(int(0.88 * h), int(0.12 * h) + 1)
+    w = gx2 - gx1
+    sx1, sx2 = max(0, gx1 - w // 2), min(ink_all.shape[1], gx2 + w // 2)
+    if b <= a or sx2 <= sx1:
+        return gx1, gx2
+    cols = ink_all[a:b, sx1:sx2].any(axis=0)
+    runs, start = [], None
+    for x, on in enumerate(cols):
+        if on and start is None:
+            start = x
+        elif not on and start is not None:
+            runs.append([start, x]); start = None
+    if start is not None:
+        runs.append([start, len(cols)])
+    if not runs:
+        return gx1, gx2
+    merged = [runs[0]]
+    for r in runs[1:]:
+        if r[0] - merged[-1][1] <= 1:          # a missing dot column inside one character
+            merged[-1][1] = r[1]
+        else:
+            merged.append(r)
+    centre = (gx1 + gx2) / 2.0 - sx1
+    r = min(merged, key=lambda q: abs((q[0] + q[1]) / 2.0 - centre))
+    if abs((r[0] + r[1]) / 2.0 - centre) > 0.75 * w:
+        return gx1, gx2
+    return sx1 + r[0], sx1 + r[1]
+
+
+def _char_rows(ink_all: np.ndarray, ry1: int, ry2: int, x1: int, x2: int) -> Tuple[int, int]:
+    """
+    Rows of the character in columns [x1, x2): the run of ink rows around the cell centre
+    (gaps between dot rows bridged). A run that also holds a touching neighbouring line is
+    cut back to the character height (~82% of the line pitch) with the most ink.
+    """
+    p = ry2 - ry1
+    c = (ry1 + ry2) / 2.0
+    a, b = max(0, int(c - 0.75 * p)), min(ink_all.shape[0], int(c + 0.75 * p))
+    if b <= a or x2 <= x1:
+        return ry1, ry2
+    prof = ink_all[a:b, x1:x2].sum(axis=1)
+    on = prof > 0
+    runs, start = [], None
+    for y, v in enumerate(on):
+        if v and start is None:
+            start = y
+        elif not v and start is not None:
+            runs.append([start, y]); start = None
+    if start is not None:
+        runs.append([start, len(on)])
+    if not runs:
+        return ry1, ry2
+    merged = [runs[0]]
+    gap = max(2, int(round(p / 12.0)))           # the space between two dot rows
+    for r in runs[1:]:
+        if r[0] - merged[-1][1] <= gap:
+            merged[-1][1] = r[1]
+        else:
+            merged.append(r)
+    cc = c - a
+    r = min(merged, key=lambda q: 0 if q[0] <= cc <= q[1] else min(abs(q[0] - cc), abs(q[1] - cc)))
+    y1, y2 = r
+    hmax = int(round(0.9 * p))
+    if y2 - y1 > hmax:
+        hh = int(round(0.82 * p))
+        best, best_s = y1, -1
+        for s in range(y1, y2 - hh + 1):
+            v = int(prof[s:s + hh].sum())
+            if v > best_s:
+                best, best_s = s, v
+        y1, y2 = best, best + hh
+    return a + y1, a + y2
+
+
 def _match(img: np.ndarray, tpl: np.ndarray, cx: int, cy: int, r: int) -> Tuple[float, int, int]:
     """Best NCC of tpl around top-left (cx, cy) within radius r. Returns (score, x, y)."""
     th, tw = tpl.shape[:2]
@@ -167,7 +255,7 @@ class FastVerifier:
     def __init__(self, window_threshold: float = 0.55, block_threshold: float = 0.40,
                  blot_threshold: float = 0.95, diff_area_ratio: float = 0.11,
                  line_search: int = 14, window_search: int = 3, diff_tolerance: int = 1,
-                 pharma_margin: int = 50, pharma_reverse: bool = False):
+                 pharma_margin: int = 50, pharma_reverse: bool = False, max_alternates: int = 2):
         """
         diff_area_ratio: a character fails when ink added or missing (beyond `diff_tolerance` px)
                          exceeds this fraction of the golden character's ink.
@@ -181,14 +269,50 @@ class FastVerifier:
         self.diff_tolerance = diff_tolerance
         self.pharma_margin = pharma_margin
         self.pharma_reverse = pharma_reverse
+        self.max_alternates = max_alternates
+        # printer-font character check (thresholds from leave-one-carton-out tests on the samples)
+        self.font: Optional[FontLibrary] = None
+        self.font_min_score = 0.86
+        self.font_min_margin = 0.12
         self.model: Optional[GoldenModel] = None
-        self._scaled_cache: Dict[float, dict] = {}
+        self.alternates: List[GoldenModel] = []
+        self._scaled_cache: Dict = {}
         self._last_sy = 1.0
 
     # ------------------------------------------------------------------ teach
     def teach(self, frame: np.ndarray, insp_result, recipe: str = "", rotation: int = 90,
               expected: Optional[dict] = None) -> GoldenModel:
-        """Build the golden model from a carton that the full OCR inspector passed."""
+        """Make a carton that the full OCR inspector passed the (primary) golden sample."""
+        model = self._build_model(frame, insp_result, recipe, rotation, expected)
+        self.model = model
+        self.alternates = []
+        self._scaled_cache = {}
+        self.prepare()
+        # one dry run on the golden frame so the first real carton is not slowed by lazy initialisation
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+        self.verify(gray)
+        return self.model
+
+    def add_alternate(self, frame: np.ndarray, insp_result, expected: Optional[dict] = None) -> int:
+        """
+        Add another good carton (also passed by the full OCR) as extra golden sample.
+        A character then fails only if it differs from every golden sample, so one
+        slightly untypical golden print does not cause false rejects.
+        Returns the number of golden samples.
+        """
+        if self.model is None:
+            raise ValueError("teach a primary golden sample first")
+        if len(self.alternates) >= self.max_alternates:
+            return 1 + len(self.alternates)
+        m = self._build_model(frame, insp_result, self.model.recipe, self.model.rotation,
+                              expected or self.model.expected)
+        for sy in self.SCALES_Y:          # build its templates before it becomes visible to verify()
+            self._scaled(sy, m)
+        self.alternates = self.alternates + [m]
+        return 1 + len(self.alternates)
+
+    def _build_model(self, frame: np.ndarray, insp_result, recipe: str, rotation: int,
+                     expected: Optional[dict]) -> GoldenModel:
         if insp_result.verdict != "PASS":
             raise ValueError("golden sample must PASS the full OCR inspection: "
                              + "; ".join(insp_result.reasons))
@@ -226,7 +350,14 @@ class FastVerifier:
             for (sx1, sx2) in self._segment_chars(rot[y1:y2, x1:x2], thr, len(text)):
                 wx1, wx2 = max(x1, x1 + sx1 - 2), min(x2, x1 + sx2 + 2)
                 gl.windows.append(((wx1, y1, wx2, y2), rot[y1:y2, wx1:wx2].copy()))
+                gl.char_cols.append((x1 + sx1, x1 + sx2))
             gl.chars = [text[j] if j < len(text) else "?" for j in range(len(gl.windows))]
+        # character cell rows of every line: centred on the line, one line pitch tall. Defined by
+        # the line layout only (not by ink), so it is the same whichever carton is the golden sample.
+        centres = [(gl.rect[1] + gl.rect[3]) / 2.0 for gl in lines]
+        pitch = float(np.median(np.diff(centres))) if len(centres) > 1 else float(lines[0].rect[3] - lines[0].rect[1])
+        for gl, c in zip(lines, centres):
+            gl.glyph_rows = (int(round(c - 0.5 * pitch)), int(round(c + 0.5 * pitch)))
         small = cv2.resize(block, None, fx=1.0 / COARSE, fy=1.0 / COARSE, interpolation=cv2.INTER_AREA)
 
         pharma_rect = None
@@ -238,16 +369,11 @@ class FastVerifier:
         exp = dict(expected or {})
         for k_ in FIELDS:
             exp.setdefault(k_, insp_result.fields[k_].value)
-        self.model = GoldenModel(recipe=recipe, rotation=rotation, frame_shape=gray.shape[:2],
-                                 block_rect=(bx1, by1, bx2, by2), block_tpl=block, block_tpl_small=small,
-                                 lines=lines, expected=exp, pharma_code=insp_result.pharma_code,
-                                 pharma_rect=pharma_rect, ink_threshold=self._ink_threshold(block),
-                                 created=time.time())
-        self._scaled_cache = {}
-        self.prepare()
-        # one dry run on the golden frame so the first real carton is not slowed by lazy initialisation
-        self.verify(gray)
-        return self.model
+        return GoldenModel(recipe=recipe, rotation=rotation, frame_shape=gray.shape[:2],
+                           block_rect=(bx1, by1, bx2, by2), block_tpl=block, block_tpl_small=small,
+                           lines=lines, expected=exp, pharma_code=insp_result.pharma_code,
+                           pharma_rect=pharma_rect, ink_threshold=self._ink_threshold(block),
+                           created=time.time())
 
     def prepare(self):
         """Build the templates for every print height now (not on the first carton)."""
@@ -307,17 +433,17 @@ class FastVerifier:
     def _ink_threshold(block: np.ndarray) -> float:
         return (float(np.median(block)) + float(np.percentile(block, 2))) / 2.0
 
-    def _scaled(self, sy: float) -> dict:
+    def _scaled(self, sy: float, model: Optional[GoldenModel] = None) -> dict:
         """Golden geometry + templates stretched vertically by sy (relative to the block top-left)."""
-        key = round(sy, 3)
+        m = model if model is not None else self.model
+        key = (id(m), round(sy, 3))
         if key in self._scaled_cache:
             return self._scaled_cache[key]
-        m = self.model
         bx1, by1, bx2, by2 = m.block_rect
 
         def rs(img):
             h = max(4, int(round(img.shape[0] * sy)))
-            return img if key == 1.0 else cv2.resize(img, (img.shape[1], h), interpolation=cv2.INTER_LINEAR)
+            return img if round(sy, 3) == 1.0 else cv2.resize(img, (img.shape[1], h), interpolation=cv2.INTER_LINEAR)
 
         def rr(rect):
             x1, y1, x2, y2 = rect
@@ -342,6 +468,12 @@ class FastVerifier:
                 "field": gl.field, "chars": gl.chars,
                 "halves": [(rr(r), rs(t)) for r, t in gl.halves],
                 "windows": [win(r, t) for r, t in gl.windows],
+                # character boxes relative to their window's top-left (for the font recognition)
+                "char_boxes": [(cc[0] - w[0][0],
+                                int(round((getattr(gl, "glyph_rows", (w[0][1], w[0][3]))[0] - w[0][1]) * sy)),
+                                cc[1] - w[0][0],
+                                int(round((getattr(gl, "glyph_rows", (w[0][1], w[0][3]))[1] - w[0][1]) * sy)))
+                               for cc, w in zip(getattr(gl, "char_cols", []), gl.windows)],
             } for gl in m.lines],
         }
         if m.pharma_rect is not None:
@@ -353,19 +485,69 @@ class FastVerifier:
 
     def save(self, path: str):
         with open(path, "wb") as fh:
-            pickle.dump(self.model, fh)
+            pickle.dump({"model": self.model, "alternates": list(self.alternates)}, fh)
 
     def load(self, path: str) -> bool:
         if not os.path.exists(path):
             return False
         with open(path, "rb") as fh:
-            self.model = pickle.load(fh)
+            data = pickle.load(fh)
+        if isinstance(data, dict):
+            self.model, self.alternates = data["model"], list(data.get("alternates", []))
+        else:                                   # older single-sample file
+            self.model, self.alternates = data, []
         self._scaled_cache = {}
         self.prepare()
+        for am in self.alternates:
+            for sy in self.SCALES_Y:
+                self._scaled(sy, am)
         return True
 
+    def font_check(self, crop: np.ndarray, thr: float, expected_char: str):
+        """(ok or None if not checkable, best-matching char, score, margin) for one character box."""
+        e = "0" if expected_char.upper() == "O" else expected_char.upper()   # letter O = digit 0 in this font
+        if self.font is None or e not in self.font.classes():
+            return None, "", 0.0, 0.0
+        vec = normalize_box(crop, thr)
+        if vec is None:
+            return False, "?", 0.0, -1.0
+        ok, best, sc, mg = self.font.check(vec, e, self.font_min_score, self.font_min_margin)
+        return ok, best, sc, mg
+
+    def _expected_chars(self, L) -> str:
+        """Characters of a line as the recipe says they must be printed (falls back to the golden OCR text)."""
+        f = L["field"]
+        val = normalize_expected(f, (self.model.expected or {}).get(f, ""))
+        canon = f"{f}:{val}" if val else ""
+        return canon if len(canon) == len(L["windows"]) else "".join(L["chars"])
+
+    def _check_alternates(self, rot, ink_all, dil_all, L, sy, cxw, test_cx, test_y, current):
+        """Best (corr, diff, extra, missing) of one character over the extra golden samples."""
+        best = current
+        rel = cxw - L["halves"][0][0][0]          # character centre relative to its line start
+        for am in self.alternates:
+            SA = self._scaled(sy, am)
+            AL = next((x for x in SA["lines"] if x["field"] == L["field"]), None)
+            if AL is None or not AL["windows"]:
+                continue
+            al_x1 = AL["halves"][0][0][0]
+            (awx1, _, awx2, _), atpl, agink, agdil, agsum = min(
+                AL["windows"], key=lambda w: abs((w[0][0] + w[0][2]) / 2.0 - al_x1 - rel))
+            ath, atw = atpl.shape[:2]
+            s, mx, my = _match(rot, atpl, int(round(test_cx - atw / 2.0)), int(test_y), 5)
+            t_ink = ink_all[my:my + ath, mx:mx + atw]
+            if t_ink.shape != atpl.shape:
+                continue
+            extra, missing = _ink_diff(t_ink, dil_all[my:my + ath, mx:mx + atw], agink, agdil, agsum)
+            diff = max(extra, missing)
+            ok_new = s >= self.window_threshold and diff <= self.diff_area_ratio
+            ok_best = best[0] >= self.window_threshold and best[1] <= self.diff_area_ratio
+            if (ok_new and not ok_best) or (ok_new == ok_best and diff < best[1]):
+                best = (s, diff, extra, missing)
+        return best
+
     # ----------------------------------------------------------------- verify
-    def verify(self, frame: np.ndarray) -> VerifyResult:
+    def verify(self, frame: np.ndarray, collect_chars: bool = False, collect_lines: bool = False) -> VerifyResult:
         res = VerifyResult()
         m = self.model
         t0 = time.perf_counter()
@@ -441,14 +623,25 @@ class FastVerifier:
         dil_all = cv2.dilate(ink_all, S["kernel"])
 
         # 2-3. lines -> character windows: correlation + ink difference against the golden print
+        font_on = self.font is not None and self.font.ready
+        font_items, failed_fields = [], set()
         for L in S["lines"]:
             ends = []
             for (hx1, hy1, hx2, hy2), tpl in L["halves"]:
                 s, mx, my = _match(rot, tpl, bx + hx1, by + hy1, self.line_search)
                 ends.append((hx1 + (hx2 - hx1) / 2.0, mx - (bx + hx1), my - (by + hy1)))
             (cxl, oxl, oyl), (cxr, oxr, oyr) = ends
+            if collect_lines:
+                # the whole printed line, aligned: for reading it with the OCR recogniser (audit)
+                lx1, ly1 = L["halves"][0][0][0], L["halves"][0][0][1]
+                lx2, ly2 = L["halves"][1][0][2], L["halves"][1][0][3]
+                ox_, oy_ = int(round((oxl + oxr) / 2.0)), int(round((oyl + oyr) / 2.0))
+                ph = max(2, (ly2 - ly1) // 8)
+                res.line_crops[L["field"]] = rot[max(0, by + ly1 + oy_ - ph):by + ly2 + oy_ + ph,
+                                                 max(0, bx + lx1 + ox_ - 6):bx + lx2 + ox_ + 6].copy()
             worst_s, worst_j, worst_diff = 1.0, -1, 0.0
             fail_j, fail_msg = -1, ""
+            placed = []
             for j, ((wx1, wy1, wx2, wy2), tpl, gink, gdil, gsum) in enumerate(L["windows"]):
                 cxw = (wx1 + wx2) / 2.0
                 f = 0.0 if cxr == cxl else (cxw - cxl) / (cxr - cxl)
@@ -456,11 +649,16 @@ class FastVerifier:
                 s, mx, my = _match(rot, tpl, int(round(bx + wx1 + ox)), int(round(by + wy1 + oy)),
                                    self.window_search)
                 th, tw = tpl.shape[:2]
+                placed.append((j, mx, my, tw, th))
                 t_ink = ink_all[my:my + th, mx:mx + tw]
                 extra = missing = 1.0
                 if t_ink.shape == tpl.shape:
                     extra, missing = _ink_diff(t_ink, dil_all[my:my + th, mx:mx + tw], gink, gdil, gsum)
                 diff = max(extra, missing)
+                if (s < self.window_threshold or diff > self.diff_area_ratio) and self.alternates:
+                    # differs from the primary golden print: accept if it matches any other golden sample
+                    s, diff, extra, missing = self._check_alternates(
+                        rot, ink_all, dil_all, L, sy, cxw, mx + tw / 2.0, my, (s, diff, extra, missing))
                 if s < worst_s:
                     worst_s = s
                 if diff > worst_diff:
@@ -470,11 +668,52 @@ class FastVerifier:
                     kind = "extra ink" if extra >= missing else "missing ink"
                     fail_msg = (f"{L['field']}: character {j + 1} ('{L['chars'][j]}') {kind} "
                                 f"{diff * 100:.0f}% / corr {s:.2f}")
+            # characters for the printer-font recognition (classified together after all lines)
+            if placed and (collect_chars or font_on):
+                expected_chars = self._expected_chars(L)
+                boxes = L.get("char_boxes") or []
+                for (j, mx, my, tw, th) in placed:
+                    if j >= len(boxes):
+                        continue
+                    ch = expected_chars[j] if j < len(expected_chars) else L["chars"][j]
+                    if not ch.isalnum() and not collect_chars:
+                        continue
+                    # rows: the line cell (layout of the golden sample, not this print's ink);
+                    # columns: this print's ink in the middle rows of the cell, nearest to where the
+                    # golden sample has the character (neighbouring lines never reach the middle rows)
+                    cx1, cy1, cx2, cy2 = boxes[j]
+                    ry1, ry2 = max(0, my + cy1), min(rot.shape[0], my + cy2)
+                    x1c, x2c = _char_columns(ink_all, ry1, ry2, mx + cx1, mx + cx2)
+                    gy1, gy2 = _char_rows(ink_all, ry1, ry2, x1c, x2c)
+                    crop = rot[max(0, gy1 - 1):gy2 + 1, max(0, x1c - 1):x2c + 1]
+                    if collect_chars:
+                        res.char_crops.setdefault(L["field"], []).append((ch, crop.copy(), thr_t, None))
+                    if font_on and ch.isalnum():
+                        font_items.append((L["field"], j, ch, normalize_box(crop, thr_t)))
             res.field_scores[L["field"]] = round(worst_s, 3)
             res.worst_window[L["field"]] = {"index": worst_j, "diff": round(worst_diff, 3),
                                             "char": L["chars"][worst_j] if worst_j >= 0 else ""}
             if fail_j >= 0:
                 res.reasons.append(fail_msg)
+                failed_fields.add(L["field"])
+
+        # printer-font recognition of every character (catches a digit printed like another digit)
+        if font_items:
+            classes = self.font.classes()
+            checks = [(f, j, ch, v) for (f, j, ch, v) in font_items if v is not None
+                      and ("0" if ch.upper() == "O" else ch.upper()) in classes]
+            for (f, j, ch, v) in font_items:
+                if v is None and f not in failed_fields:        # no character where one must be
+                    res.reasons.append(f"{f}: character {j + 1} ('{ch}') missing")
+                    failed_fields.add(f)
+            if checks:
+                out = self.font.check_many(np.stack([c[3] for c in checks]), [c[2] for c in checks],
+                                           self.font_min_score, self.font_min_margin)
+                for (f, j, ch, _), (ok, best_ch, sc, mg) in zip(checks, out):
+                    if ok is False and f not in failed_fields:
+                        res.reasons.append(f"{f}: character {j + 1} should be '{ch}' but reads like "
+                                           f"'{best_ch}' (match {sc:.2f}, margin {mg:+.2f})")
+                        failed_fields.add(f)
         t3 = time.perf_counter()
 
         # 4. ink blots on the found block (margins excluded: carton edge / neighbouring print)

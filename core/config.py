@@ -83,6 +83,9 @@ class Settings:
         self.INSPECTION_ENGINE = "auto"
         self.AUTO_ROTATION = 90              # clockwise degrees that make the LOT/MFG/EXP print read left-to-right
         self.AUTO_SAVE_PASS_IMAGES = False   # rejected cartons are always saved
+        # golden-difference above which a printed line is also read by OCR before PASS
+        # (catches a digit printed like another digit; those cartons take ~60-120 ms). None/off = fast only
+        self.AUTO_ESCALATION_THRESHOLD = 0.03
         self.AUTO_RETEACH_KEY = "auto_reteach"
         self.AUTO_STATUS_KEY = "auto_status"
         try:
@@ -102,6 +105,9 @@ class Settings:
                         self.AUTO_ROTATION = int(data["auto_rotation"]) % 360
                     if "auto_save_pass_images" in data:
                         self.AUTO_SAVE_PASS_IMAGES = bool(data["auto_save_pass_images"])
+                    if "auto_escalation_threshold" in data:
+                        v = data["auto_escalation_threshold"]
+                        self.AUTO_ESCALATION_THRESHOLD = None if v in (None, False, "off") else float(v)
                     if "auth_max_failed_attempts" in data:
                         self.AUTH_MAX_FAILED_ATTEMPTS = int(data["auth_max_failed_attempts"])
                     if "auth_password_expiry_days" in data:

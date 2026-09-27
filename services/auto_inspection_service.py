@@ -23,7 +23,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from core.auto_inspector import AutoInspector, FIELDS, normalize_expected, label_matches, split_label_value
+from core.auto_inspector import (AutoInspector, FIELDS, normalize_expected, label_matches, split_label_value,
+                                 normalize_lot, normalize_date)
 from core.fast_verifier import FastVerifier, _rot_to_orig
 from services.inspection_log_service import InspectionLogService
 
@@ -42,9 +43,16 @@ def _recipe_key(expected: dict) -> str:
 
 
 class AutoInspectionService:
-    def __init__(self, rotation: int = 90, save_pass_images: bool = False, log_results: bool = True):
+    def __init__(self, rotation: int = 90, save_pass_images: bool = False, log_results: bool = True,
+                 escalation_threshold: Optional[float] = 0.03):
+        """
+        escalation_threshold: golden-difference above which a line is also read by the OCR
+        recogniser before PASS (None = fast check only). 0.03 caught every defect in the
+        sample tests; those cartons take ~60-120 ms instead of ~15 ms.
+        """
         self.inspector = AutoInspector(rotation=rotation)
         self.verifier = FastVerifier()
+        self.escalation_threshold = escalation_threshold
         self.rotation = rotation
         self.golden_dir = os.path.join(_base_dir(), "golden")
         os.makedirs(self.golden_dir, exist_ok=True)
@@ -124,6 +132,7 @@ class AutoInspectionService:
             try:
                 self.verifier.teach(gray, r, recipe=key, rotation=self.rotation, expected=expected)
                 self.verifier.save(self._golden_path(key))
+                self._warm_confirmation(gray)
                 self.golden_key = key
                 out["auto_reasons"] = ["golden sample taught from this carton"]
                 print(f"[AutoInspection] golden sample taught: {r.line_texts} pharma={r.pharma_code}")
@@ -162,9 +171,56 @@ class AutoInspectionService:
         }
 
     # ----------------------------------------------------------------- verify
+    # recogniser confusions seen on GOOD prints of this dot-matrix font (dotted zero, open 9)
+    OCR_TOLERATED = {"9": set("35"), "0": set("8")}
+
+    def _escalate(self, v, expected: dict) -> None:
+        """
+        Characters that are close to, but not clearly beyond, the golden-difference limit are
+        confirmed by reading their line with the OCR recogniser (whole value, recipe comparison).
+        Adds reasons to `v` and sets FAIL when a value does not read as the recipe.
+        """
+        lo = self.escalation_threshold
+        if lo is None or v.verdict != "PASS":
+            return
+        fields = [f for f in FIELDS if lo < v.worst_window.get(f, {}).get("diff", 0.0)
+                  and f in v.line_crops and v.line_crops[f].size]
+        if not fields:
+            return
+        t = time.perf_counter()
+        crops = [cv2.cvtColor(v.line_crops[f], cv2.COLOR_GRAY2BGR) for f in fields]
+        with self.inspector._rec_lock:
+            out, _ = self.inspector.engine().text_rec(crops)
+        for f, (txt, conf) in zip(fields, out):
+            _, val = split_label_value(txt)
+            got = normalize_lot(val) if f == "LOT" else normalize_date(val)
+            want = normalize_expected(f, expected.get(f, ""))
+            ok = len(got) == len(want) and all(g == w or g in self.OCR_TOLERATED.get(w, ())
+                                               for g, w in zip(got, want))
+            v.escalated[f] = got
+            if want and not ok:
+                v.reasons.append(f"{f}: reads '{got}' expected '{want}' (OCR confirmation)")
+        v.verdict = "PASS" if not v.reasons else "FAIL"
+        v.timings_ms["ocr_confirm"] = round((time.perf_counter() - t) * 1000, 1)
+
+    def _warm_confirmation(self, gray: np.ndarray):
+        """Run the OCR confirmation once on the golden print so the first real carton is not slowed."""
+        if self.escalation_threshold is None:
+            return
+        try:
+            v = self.verifier.verify(gray, collect_lines=True)
+            crops = [cv2.cvtColor(c, cv2.COLOR_GRAY2BGR) for c in v.line_crops.values() if c.size]
+            with self.inspector._rec_lock:
+                for k in range(1, len(crops) + 1):        # every batch size that can occur
+                    self.inspector.engine().text_rec(crops[:k])
+        except Exception as e:
+            print(f"[AutoInspection] confirmation warm-up skipped: {e}")
+
     def _verify(self, gray: np.ndarray) -> dict:
-        v = self.verifier.verify(gray)
+        v = self.verifier.verify(gray, collect_lines=self.escalation_threshold is not None)
+        v.escalated = {}
         m = self.verifier.model
+        self._escalate(v, m.expected)
         failed_fields = set()
         for reason in v.reasons:
             for f in FIELDS + ("PHARMA",):

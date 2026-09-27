@@ -8,28 +8,35 @@ result logging. No ROI has to be drawn or taught by hand.
 
 | Step | What happens | Time |
 |---|---|---|
-| 1. Camera (Daheng) | frame pushed to Redis as lossless BMP | – |
-| 2. **TEACH** (first good carton after every *Start*, or when the recipe values change) | full OCR (PP-OCR / RapidOCR, CPU) finds the print anywhere in the frame, reads LOT / MFG / EXP, product name and Pharmacode, and compares them with the recipe. Only a carton that fully matches **and** has no print defect becomes the *golden sample* (saved in `golden/`). | ~1 s, once |
-| 3. **VERIFY** (every following carton) | locate the print (any position, any print height), compare every character with the golden print (extra / missing ink), ink-blot check, Pharmacode decode | **~15 ms** (max 23 ms measured) |
-| 4. Decision | PASS → M21, FAIL → M20 to the PLC (existing `plc_comm`), counters, UI | – |
-| 5. Log | every result in `InspectionLog.db` (SQLite), image of every rejected carton in `inspection_images/<date>/` | background |
+| 1. Camera (Daheng) | frame pushed to Redis as lossless BMP (JPEG blurred the dot print) | – |
+| 2. **TEACH** – first good carton after every *Start* or recipe change | full OCR (PP-OCR / RapidOCR, CPU) finds the print anywhere in the frame, reads LOT / MFG / EXP, product name and Pharmacode, compares them with the recipe. Only a carton that fully matches **and** has no print defect becomes the *golden sample* (saved in `golden/`). Defective cartons are rejected and never taught. | ~1–1.6 s, once |
+| 3. **VERIFY** – every following carton | locate the print (any position, any print height), compare every character with the golden print (extra / missing ink), ink-blot check, print-in-view check, Pharmacode decode | **~13–15 ms** |
+| 4. **OCR confirmation** – only when a character is close to the limit | the line is read by the OCR recogniser (lines already located, no text detection) and compared with the recipe; catches a digit printed like another digit (e.g. `6` printed like `8`) which differs from the golden print by only a few dots | +25–200 ms, ~25 % of cartons |
+| 5. Decision | PASS → M21, FAIL → M20 to the PLC (existing `plc_comm`), counters, UI | – |
+| 6. Log | every result in `InspectionLog.db` (SQLite), image of every rejected carton in `inspection_images/<date>/` | background |
 
-A defective carton is never taught: if the first cartons after *Start* are bad they are rejected
-and the next good one is used.
+## Results on the customer's 75 sample images (3 products, 14 deliberately defective)
 
-## Results on the customer's 75 sample images (3 products)
+Ground truth set by visual inspection of every image. Defects in the set: ink blots on
+letters / digits, malformed or over-printed digits (`6` printed like `8`), wrong LOT digit,
+`MF8` instead of `MFG`, scratch through a digit, print cut by the frame.
 
-Ground truth was set by visual inspection of every image (14 of them carry deliberate defects:
-ink blots, malformed / over-printed digits, wrong character, `MF8` instead of `MFG`, scratch,
-print cut by the frame).
+**Full application run** (Redis + mock camera fed with the 75 images + processing thread + UI + log,
+each result identified by the pixels of its saved frame):
 
 | | Result |
 |---|---|
-| Defective cartons rejected | **14 / 14** (0 escapes) |
-| Good cartons accepted | **59 / 61** |
-| Good cartons rejected | 2 – the print is cut by the edge of the camera image (trigger timing); reported as *"print partly outside the camera view"* |
-| Pharmacode | 75 / 75 decoded correctly (Famodar 1576, Myogesic 1682, Mixif 1474) |
-| Verification time | avg 14.8 ms, p95 20.6 ms, max 23.0 ms – **69 / 69 under 25 ms** (4-core PC, includes colour→grey) |
+| Defective cartons rejected | **14 / 14** – 0 escapes |
+| Good cartons accepted | 57 / 61 |
+| Good cartons rejected | 28, 51: print cut by the edge of the camera image (trigger timing) → *"print partly outside the camera view"*; 19: full OCR did not find the print while teaching (the next carton was taught); 74: 12 % ink difference on the `F` of `MFG` (limit 11 %) |
+| Pharmacode | 75 / 75 decoded correctly offline (Famodar 1576, Myogesic 1682, Mixif 1474) |
+| Decision time | 55 / 74 cartons under 25 ms; cartons that needed OCR confirmation 36–214 ms |
+
+**Robustness test** – every OCR-verified good carton used in turn as golden sample
+(846 good-carton checks, 192 defective-carton checks): **0 defective cartons passed**,
+good cartons rejected 7.4 % – of which 3.5 % are the two cut-off images; 4 % otherwise.
+Without the OCR confirmation the fast check alone let 18 / 192 defective checks pass
+(the `6`-printed-like-`8` cartons), which is why the confirmation is on by default.
 
 ## Settings (`user_settings.json`)
 
@@ -37,6 +44,7 @@ print cut by the frame).
 |---|---|---|
 | `inspection_engine` | `"auto"` | `"auto"` = this engine, `"classic"` = previous ROI / Tesseract pipeline |
 | `auto_rotation` | `90` | clockwise rotation that makes the print read left-to-right in the camera image |
+| `auto_escalation_threshold` | `0.03` | golden-difference above which a line is also read by OCR before PASS; `"off"` = fast check only (all cartons < 25 ms, but subtle digit defects can pass) |
 | `auto_save_pass_images` | `false` | also save images of good cartons |
 
 Expected values come from the existing recipe / `expected_values` (LOT, MFG, EXP, PHARMA).
@@ -56,25 +64,27 @@ run_app.bat              (unchanged)
 ```
 python tools/simulate_line.py <images> --lot 10562 --mfg 06-2026 --exp 06-2028 --pharma 1474
 python tools/simulate_line.py <images> --truth tools/truth_input_samples.json
-python tools/evaluate_fast_verifier.py <images> --truth tools/truth_input_samples.json
 python tools/evaluate_auto_inspector.py <images> --truth tools/truth_input_samples.json
 ```
 
 ## Before production sign-off
 
-* Run on the real line PC and camera and confirm the timing there (numbers above are from a 4-core laptop).
+* Run on the real line PC and camera; confirm the times there (numbers above: 4-core laptop).
+* Check that the reject station is far enough from the camera for the OCR-confirmed cartons
+  (up to ~0.2 s), or set `auto_escalation_threshold` to `"off"` if every decision must be < 25 ms.
 * Fix the camera trigger / position so the whole print is always inside the image.
-* The character threshold (`diff_area_ratio` = 0.11) was calibrated on 75 images: good prints reached
-  0.10, the weakest defect 0.12. Collect a few hundred cartons from the line and re-check the margin.
+* Collect a few hundred cartons from the line and re-check the limits (character difference 11 %,
+  escalation 3 %) – they were set on 75 images.
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `core/auto_inspector.py` | full OCR inspection (teach, reading, blot check, decision) |
-| `core/fast_verifier.py` | golden-sample verification (< 25 ms) |
+| `core/fast_verifier.py` | golden-sample verification |
 | `core/pharmacode_locator.py` | Pharmacode locator / decoder (no ROI) |
 | `core/dotmatrix_ocr.py` | dot-matrix line helpers |
-| `services/auto_inspection_service.py` | teach / verify workflow used by `processing_thread.py` |
+| `core/font_classifier.py` | printer-font character classifier – experimental, **not used** (unstable across golden samples in tests) |
+| `services/auto_inspection_service.py` | teach / verify / OCR-confirmation workflow used by `processing_thread.py` |
 | `services/inspection_log_service.py` | SQLite log + reject images |
-| `tools/*.py` | offline evaluation / line simulation |
+| `tools/*.py` | offline evaluation, line simulation, font-library builder (experimental) |

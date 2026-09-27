@@ -72,6 +72,7 @@ class ProcessingThread(Thread):
                 self.auto_service = AutoInspectionService(
                     rotation=settings.AUTO_ROTATION,
                     save_pass_images=settings.AUTO_SAVE_PASS_IMAGES,
+                    escalation_threshold=settings.AUTO_ESCALATION_THRESHOLD,
                 )
                 print("[ProcessingThread] Inspection engine: AUTO (OCR teach + fast verification)")
             except Exception as e:
