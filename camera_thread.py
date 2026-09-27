@@ -107,7 +107,8 @@ class CameraThread(Thread):
     def _push_to_redis(self, frame_obj):
         """Helper to encode and push frame to Redis."""
         try:
-            ret, buffer = cv2.imencode('.jpg', frame_obj.image_data)
+            # lossless BMP: JPEG blurs the small dot-matrix print and costs more time to encode/decode
+            ret, buffer = cv2.imencode('.bmp', frame_obj.image_data)
             if ret:
                 frame_bytes = buffer.tobytes()
                 payload = {
@@ -116,7 +117,8 @@ class CameraThread(Thread):
                 }
                 data_json = json.dumps(payload)
                 self.redis_client.lpush(settings.RAW_FRAMES_KEY, data_json)
-                self.redis_client.ltrim(settings.RAW_FRAMES_KEY, 0, settings.MAX_FRAMES - 1)
+                # only the newest frame is ever read: keep a few (BMP frames are large)
+                self.redis_client.ltrim(settings.RAW_FRAMES_KEY, 0, 2)
                 # print(f"[CameraThread] Pushed frame to Redis. (Key: {settings.RAW_FRAMES_KEY})")
             else:
                 print("[CameraThread] cv2.imencode failed!")

@@ -1,4 +1,7 @@
 {
+  "inspection_engine": "auto",
+  "auto_rotation": 90,
+  "auto_save_pass_images": false,
   "camera_exposure_us": 700.0,
   "locator_confidence": 0.0,
   "ocr_confidence": 0.0,

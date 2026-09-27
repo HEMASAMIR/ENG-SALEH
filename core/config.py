@@ -76,6 +76,15 @@ class Settings:
 
         # Camera mode (Default to False to use the real camera; set to True in user_settings.json for mock mode)
         self.USE_MOCK_CAMERA = False
+
+        # Inspection engine (user_settings.json):
+        #   "auto"    = automatic OCR + fast golden-sample verification (no ROIs to teach)
+        #   "classic" = previous ROI / Tesseract pipeline
+        self.INSPECTION_ENGINE = "auto"
+        self.AUTO_ROTATION = 90              # clockwise degrees that make the LOT/MFG/EXP print read left-to-right
+        self.AUTO_SAVE_PASS_IMAGES = False   # rejected cartons are always saved
+        self.AUTO_RETEACH_KEY = "auto_reteach"
+        self.AUTO_STATUS_KEY = "auto_status"
         try:
             import json
             db_name = "BlueSquare.db"
@@ -87,6 +96,12 @@ class Settings:
                     data = json.load(f)
                     if "use_mock_camera" in data:
                         self.USE_MOCK_CAMERA = bool(data["use_mock_camera"])
+                    if str(data.get("inspection_engine", "")).lower() in ("auto", "classic"):
+                        self.INSPECTION_ENGINE = str(data["inspection_engine"]).lower()
+                    if "auto_rotation" in data:
+                        self.AUTO_ROTATION = int(data["auto_rotation"]) % 360
+                    if "auto_save_pass_images" in data:
+                        self.AUTO_SAVE_PASS_IMAGES = bool(data["auto_save_pass_images"])
                     if "auth_max_failed_attempts" in data:
                         self.AUTH_MAX_FAILED_ATTEMPTS = int(data["auth_max_failed_attempts"])
                     if "auth_password_expiry_days" in data:

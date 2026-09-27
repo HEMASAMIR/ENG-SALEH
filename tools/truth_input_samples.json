@@ -1,0 +1,402 @@
+{
+ "recipes": {
+  "FAM": {
+   "PRODUCT": "Famodar",
+   "LOT": "0220",
+   "MFG": "09-2026",
+   "EXP": "09-2028",
+   "PHARMA": "1576"
+  },
+  "MYO": {
+   "PRODUCT": "Myogesic",
+   "LOT": "03729",
+   "MFG": "01-2026",
+   "EXP": "01-2029",
+   "PHARMA": "1682"
+  },
+  "MIX": {
+   "PRODUCT": "Mixif",
+   "LOT": "10562",
+   "MFG": "06-2026",
+   "EXP": "06-2028",
+   "PHARMA": "1474"
+  }
+ },
+ "images": {
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٤٣٦٥٢٧-3.bmp": {
+   "recipe": "FAM",
+   "verdict": "FAIL",
+   "n": 3
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٤٤٦٠٢٨-4.bmp": {
+   "recipe": "FAM",
+   "verdict": "FAIL",
+   "n": 4
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٠١٤٢٣-5.bmp": {
+   "recipe": "FAM",
+   "verdict": "FAIL",
+   "n": 5
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٠٤٩٠٠-6.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 6
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٠٨٠٠٧-7.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 7
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥١١٠٩٥-8.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 8
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥١٤٥٣٨-9.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 9
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥١٨٣٢٨-10.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 10
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٢٤٢٣٢-11.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 11
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٢٧٤٧٨-12.bmp": {
+   "recipe": "FAM",
+   "verdict": "FAIL",
+   "n": 12
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٥١١٣٣-13.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 13
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٥٥٤٢٧١-14.bmp": {
+   "recipe": "FAM",
+   "verdict": "PASS",
+   "n": 14
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦٠٧٨٤٨-15.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 15
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦١١١٨٤-16.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 16
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦١٣٦٦٢-17.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 17
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦١٦٩٧٨-18.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 18
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦١٩٦٥٧-19.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 19
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦٢٢٧٢٧-20.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 20
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦٢٥٨٢٢-21.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 21
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٦٢٩٢٠٥-22.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 22
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٠٦٢٣-23.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 23
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢١٦١١-24.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 24
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٢٤٤٣-25.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 25
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٣٢١٣-26.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 26
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٤٠٠٠-27.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 27
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٤٧٦٠-28.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 28
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٥٥٥٠-29.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 29
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٦٣٥٩-30.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 30
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٧١٣٨-31.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 31
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٧٩٩١-32.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 32
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٢٨٧٦٨-33.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 33
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٣٠١٤٨-34.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 34
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٣١٧٦٦-35.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 35
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٥٧٣٦-36.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 36
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٦٦١٦-37.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 37
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٧٣٥٢-38.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 38
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٨١٢٤-39.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 39
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٨٩٥٣-40.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 40
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٤٩٧٦٣-41.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 41
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٠٥٧١-42.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 42
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥١٤٦٠-43.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 43
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٢١٣٠-44.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 44
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٢٩٧٢-45.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 45
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٣٦٨٩-46.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 46
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٤٣٨٠-47.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 47
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٥٢٠٩-48.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 48
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٧٥٦٨٢٤-49.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 49
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٣٦٣٤٨-50.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 50
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٣٧١٤٨-51.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 51
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٣٧٩١٧-52.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 52
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٣٨٩٣٧-53.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 53
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٣٩٦٦٧-54.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 54
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٨٤٠٥١٤-55.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 55
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٢٧٢٠٤-56.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 56
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٢٧٩٥٣-57.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 57
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٢٨٥٤٢-58.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 58
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٢٩٣٧٠-59.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 59
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٣٠١٠٢-60.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 60
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٣٠٨٧٠-61.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 61
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٣١٦٧٠-62.bmp": {
+   "recipe": "MYO",
+   "verdict": "PASS",
+   "n": 62
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٤٩٣٣١٣٩-63.bmp": {
+   "recipe": "MYO",
+   "verdict": "FAIL",
+   "n": 63
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٠٨٩٢-64.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 64
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١١٥٠٥-65.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 65
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٢١٣٢-66.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 66
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٢٧٥٢-67.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 67
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٣٤٠٣-68.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 68
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٤٠٣٦-69.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 69
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٤٦٩٩-70.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 70
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٥٣١٠-71.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 71
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٥٩٥٠-72.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 72
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٦٨٧٨-73.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 73
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٧٦٧٦-74.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 74
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٨٥٢٥-75.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 75
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠١٩٣٩٣-76.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 76
+  },
+  "Pic_٢٠٢٦٠٩٢٦٢٣٥٠٢٠٦٣٧-77.bmp": {
+   "recipe": "MIX",
+   "verdict": "PASS",
+   "n": 77
+  }
+ }
+}

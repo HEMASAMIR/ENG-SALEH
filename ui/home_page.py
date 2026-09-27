@@ -1267,7 +1267,8 @@ class HomePage(QWidget):
                     else:
                         self.date_conf_lbl.setText("Conf: —")
 
-                has_date_roi = self.redis_client.exists(settings.ROI_DATE_KEY)
+                # AUTO engine finds the print itself: no taught ROI needed
+                has_date_roi = self.redis_client.exists(settings.ROI_DATE_KEY) or "auto_verdict" in results
                 if not has_date_roi:
                     if hasattr(self, "date_status_badge"):
                         self.date_status_badge.setText("NO ROI")
@@ -1364,7 +1365,7 @@ class HomePage(QWidget):
                 if hasattr(self, "pharma_time_lbl") and "pharma_time_ms" in results:
                     self.pharma_time_lbl.setText(f"Time: {results['pharma_time_ms']}ms")
 
-                has_pharma_roi = self.redis_client.exists(settings.ROI_PHARMA_KEY)
+                has_pharma_roi = self.redis_client.exists(settings.ROI_PHARMA_KEY) or "auto_verdict" in results
                 if not has_pharma_roi:
                     if hasattr(self, "pharma_status_badge"):
                         self.pharma_status_badge.setText("NO ROI")

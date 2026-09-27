@@ -63,6 +63,21 @@ class ProcessingThread(Thread):
         # Parallelization
         self.executor = ThreadPoolExecutor(max_workers=3)
 
+        # Automatic engine (OCR teach + fast golden-sample verification, no ROIs needed)
+        self.auto_service = None
+        self._last_pipeline_started = False
+        if getattr(settings, "INSPECTION_ENGINE", "classic") == "auto":
+            try:
+                from services.auto_inspection_service import AutoInspectionService
+                self.auto_service = AutoInspectionService(
+                    rotation=settings.AUTO_ROTATION,
+                    save_pass_images=settings.AUTO_SAVE_PASS_IMAGES,
+                )
+                print("[ProcessingThread] Inspection engine: AUTO (OCR teach + fast verification)")
+            except Exception as e:
+                print(f"[ProcessingThread] AUTO engine unavailable ({e}) - falling back to CLASSIC")
+                self.auto_service = None
+
     def run(self):
         self.running = True
         print("[ProcessingThread] Started.")
@@ -82,7 +97,9 @@ class ProcessingThread(Thread):
                     payload = json.loads(raw_data[0])
                     timestamp = payload.get("timestamp")
                     
-                    if timestamp != self.last_processed_timestamp or settings_hash != self.last_settings_hash:
+                    # (the auto engine does not use the ROI settings: only new frames are inspected)
+                    settings_changed = settings_hash != self.last_settings_hash and self.auto_service is None
+                    if timestamp != self.last_processed_timestamp or settings_changed:
                         self.last_processed_timestamp = timestamp
                         self.last_settings_hash = settings_hash
                         
@@ -135,13 +152,31 @@ class ProcessingThread(Thread):
         try:
             t_s12_start = time.perf_counter()
             expected_raw = self.redis_client.get("expected_values")
-            if not expected_raw:
+            if not expected_raw and "auto_verdict" not in results:
                 return
-            
-            expected = json.loads(expected_raw)
-            
+
+            expected = json.loads(expected_raw) if expected_raw else {}
+
             # 1. Comparison with intelligent prefix normalization
             is_match = True
+            if "auto_verdict" in results:
+                # AUTO engine already compared everything (values, characters, blots, pharmacode)
+                is_match = results.get("auto_verdict") == "PASS"
+                if not is_match:
+                    print(f"[ProcessingThread] AUTO FAIL: {results.get('auto_reasons')}")
+            else:
+                is_match = self._classic_match(results, expected)
+
+            t_s12_end = time.perf_counter()
+            log_stage_timing(12, "Final decision", t_s12_start, t_s12_end, extra_info=f"Verdict: {'PASS (GOOD)' if is_match else 'FAIL (NG / MISMATCH)'}")
+            self._apply_verdict(results, expected, is_match)
+        except Exception as e:
+            print(f"[ProcessingThread] Validation error: {e}")
+
+    def _classic_match(self, results, expected) -> bool:
+        """Decision of the classic ROI / Tesseract pipeline."""
+        is_match = True
+        if True:
             if results.get("locator_found") is False:
                 is_match = False
             norm_actual_lot = self._normalize_code(results.get("LOT"), "LOT")
@@ -178,10 +213,11 @@ class ProcessingThread(Thread):
             if results.get("smudged_chars"):
                 is_match = False
                 print(f"[ProcessingThread] SMUDGE MISMATCH: Smudged characters detected: {results.get('smudged_chars')}")
+        return is_match
 
-            t_s12_end = time.perf_counter()
-            log_stage_timing(12, "Final decision", t_s12_start, t_s12_end, extra_info=f"Verdict: {'PASS (GOOD)' if is_match else 'FAIL (NG / MISMATCH)'}")
-
+    def _apply_verdict(self, results, expected, is_match):
+        """Counters, UI status and PLC signals for one inspected carton."""
+        if True:
             t_s13_start = time.perf_counter()
             # 2. Update Buffer (NOT the DB yet)
             self.count_buffer["total"] += 1
@@ -216,8 +252,6 @@ class ProcessingThread(Thread):
 
             t_s13_end = time.perf_counter()
             log_stage_timing(13, "Reject/output", t_s13_start, t_s13_end, extra_info=f"Signal: {'M21 (Match)' if is_match else 'M20 (Reject / NG)'}")
-        except Exception as e:
-            print(f"[ProcessingThread] Validation error: {e}")
 
     def _sync_counts_to_db(self):
         """
@@ -1090,7 +1124,39 @@ class ProcessingThread(Thread):
             print(f"[ProcessingThread] Pharma worker error: {e}")
         return results
 
+    def _process_auto(self, img: np.ndarray) -> dict:
+        """AUTO engine: teach the first good carton of a run, then fast verification."""
+        expected = {}
+        try:
+            raw = self.redis_client.get("expected_values")
+            if raw:
+                expected = {k: v for k, v in json.loads(raw).items() if k in ("LOT", "MFG", "EXP", "PHARMA")}
+        except Exception:
+            pass
+        started = self.redis_client.get(settings.START_PIPELINE_KEY) == b"true"
+        force = started and not self._last_pipeline_started      # every Start = new run -> re-teach
+        self._last_pipeline_started = started
+        if self.redis_client.get(settings.AUTO_RETEACH_KEY) == b"true":
+            self.redis_client.set(settings.AUTO_RETEACH_KEY, "false")
+            force = True
+        t = time.perf_counter()
+        results = self.auto_service.process(img, expected, force_teach=force)
+        log_stage_timing(5, f"AUTO inspection ({results.get('auto_mode')})", t, time.perf_counter(),
+                         extra_info=f"{results.get('auto_verdict')} {results.get('auto_reasons')}")
+        try:
+            self.redis_client.set(settings.AUTO_STATUS_KEY, json.dumps({
+                "mode": results.get("auto_mode"), "verdict": results.get("auto_verdict"),
+                "reasons": results.get("auto_reasons", []), "ms": results.get("auto_total_ms"),
+                "golden": self.auto_service.verifier.model is not None,
+            }))
+        except Exception:
+            pass
+        return results
+
     def process_frame(self, img: np.ndarray) -> dict:
+        if self.auto_service is not None:
+            return self._process_auto(img)
+
         # 1. Sync locator from Redis if needed
         self.locator.sync_from_redis(
             self.redis_client,

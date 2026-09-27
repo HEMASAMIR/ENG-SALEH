@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 block_cipher = None
 
@@ -11,11 +12,13 @@ added_files = [
     ('bin/redis', 'bin/redis'),
     ('bin/tesseract', 'bin/tesseract'),
 ]
+# AUTO engine: RapidOCR models (.onnx) + config, onnxruntime DLLs
+added_files += collect_data_files('rapidocr_onnxruntime')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=collect_dynamic_libs('onnxruntime'),
     datas=added_files,
     hiddenimports=[
         'sqlalchemy.ext.declarative',
@@ -33,6 +36,14 @@ a = Analysis(
         'pymodbus.client',
         'pymodbus.client.serial',
         'serial',
+        'rapidocr_onnxruntime',
+        'onnxruntime',
+        'services.auto_inspection_service',
+        'services.inspection_log_service',
+        'core.auto_inspector',
+        'core.fast_verifier',
+        'core.pharmacode_locator',
+        'core.dotmatrix_ocr',
     ],
     hookspath=[],
     hooksconfig={},

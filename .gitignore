@@ -23,3 +23,9 @@ old2/
 # Redis dump and temp logs
 *.rdb
 *.log
+
+# AUTO inspection runtime data (created on the line)
+InspectionLog.db
+inspection_images/
+golden/
+*_report.csv

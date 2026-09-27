@@ -27,7 +27,8 @@ import numpy as np
 from core.pharmacode_locator import locate_and_decode
 from core.auto_inspector import blot_scan, FIELDS
 
-COARSE = 4          # coarse search downscale factor
+COARSE = 4          # local search downscale factor (print height search)
+COARSE_FULL = 8     # whole-frame search downscale factor
 
 
 @dataclass
@@ -145,19 +146,17 @@ def _ink(gray: np.ndarray, thr: float) -> np.ndarray:
     return (gray < thr).astype(np.uint8)
 
 
-def _ink_diff(test: np.ndarray, thr_t: float, gold_ink: np.ndarray, gold_dil: np.ndarray,
-              gold_sum: int, kernel: np.ndarray) -> Tuple[float, float]:
+def _ink_diff(test_ink: np.ndarray, test_dil: np.ndarray, gold_ink: np.ndarray, gold_dil: np.ndarray,
+              gold_sum: int) -> Tuple[float, float]:
     """
     Ink present in one print but not within the tolerance of the other, as a fraction
     of the golden character's ink: (extra ink in test, ink missing from test).
     Only the middle rows are compared (neighbouring lines can touch the window edges).
     """
-    it = _ink(test, thr_t)
-    h = it.shape[0]
+    h = test_ink.shape[0]
     a, b = int(0.12 * h), max(int(0.12 * h) + 1, int(0.88 * h))
-    it, gi, gd = it[a:b], gold_ink[a:b], gold_dil[a:b]
-    extra = int((it & (1 - gd)).sum())
-    missing = int((gi & (1 - cv2.dilate(it, kernel))).sum())
+    extra = int(np.count_nonzero(test_ink[a:b] > gold_dil[a:b]))
+    missing = int(np.count_nonzero(gold_ink[a:b] > test_dil[a:b]))
     d = float(max(1, gold_sum))
     return extra / d, missing / d
 
@@ -168,7 +167,7 @@ class FastVerifier:
     def __init__(self, window_threshold: float = 0.55, block_threshold: float = 0.40,
                  blot_threshold: float = 0.95, diff_area_ratio: float = 0.11,
                  line_search: int = 14, window_search: int = 3, diff_tolerance: int = 1,
-                 pharma_margin: int = 70, pharma_reverse: bool = False):
+                 pharma_margin: int = 50, pharma_reverse: bool = False):
         """
         diff_area_ratio: a character fails when ink added or missing (beyond `diff_tolerance` px)
                          exceeds this fraction of the golden character's ink.
@@ -245,7 +244,18 @@ class FastVerifier:
                                  pharma_rect=pharma_rect, ink_threshold=self._ink_threshold(block),
                                  created=time.time())
         self._scaled_cache = {}
+        self.prepare()
+        # one dry run on the golden frame so the first real carton is not slowed by lazy initialisation
+        self.verify(gray)
         return self.model
+
+    def prepare(self):
+        """Build the templates for every print height now (not on the first carton)."""
+        if self.model is None:
+            return
+        for sy in self.SCALES_Y:
+            self._scaled(sy)
+        self._small_template_orig()
 
     @staticmethod
     def _segment_chars(line: np.ndarray, thr: float, k: int) -> List[Tuple[int, int]]:
@@ -288,7 +298,8 @@ class FastVerifier:
         if "_small_orig" not in self._scaled_cache:
             back = {90: cv2.ROTATE_90_COUNTERCLOCKWISE, 180: cv2.ROTATE_180,
                     270: cv2.ROTATE_90_CLOCKWISE}.get(self.model.rotation)
-            t = self.model.block_tpl_small
+            b = self.model.block_tpl
+            t = cv2.resize(b, None, fx=1.0 / COARSE_FULL, fy=1.0 / COARSE_FULL, interpolation=cv2.INTER_AREA)
             self._scaled_cache["_small_orig"] = cv2.rotate(t, back) if back is not None else t
         return self._scaled_cache["_small_orig"]
 
@@ -324,7 +335,7 @@ class FastVerifier:
         block = rs(m.block_tpl)
         d = {
             "block": block,
-            "block_half": cv2.resize(block, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
+            "block_quarter": cv2.resize(block, None, fx=1.0 / COARSE, fy=1.0 / COARSE, interpolation=cv2.INTER_AREA),
             "block_size": (block.shape[1], block.shape[0]),
             "kernel": kern,
             "lines": [{
@@ -350,6 +361,7 @@ class FastVerifier:
         with open(path, "rb") as fh:
             self.model = pickle.load(fh)
         self._scaled_cache = {}
+        self.prepare()
         return True
 
     # ----------------------------------------------------------------- verify
@@ -363,8 +375,8 @@ class FastVerifier:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
         t1 = time.perf_counter()
 
-        # 1. block position: coarse over the whole frame (1/4 res, camera orientation, no full-frame rotate) ...
-        small = cv2.resize(gray, None, fx=1.0 / COARSE, fy=1.0 / COARSE, interpolation=cv2.INTER_AREA)
+        # 1. block position: coarse over the whole frame (1/8 res, camera orientation, no full-frame rotate) ...
+        small = cv2.resize(gray, None, fx=1.0 / COARSE_FULL, fy=1.0 / COARSE_FULL, interpolation=cv2.INTER_AREA)
         tpl_o = self._small_template_orig()
         # pad so a block that partly leaves the frame is still found (and then reported)
         py_, px_ = tpl_o.shape[0] // 3, tpl_o.shape[1] // 3
@@ -375,48 +387,36 @@ class FastVerifier:
         oh, ow = m.block_tpl.shape[:2]
         if m.rotation in (90, 270):
             oh, ow = ow, oh                      # block size in camera orientation
-        c = _orig_to_rot(np.array([[loc[0] * COARSE, loc[1] * COARSE],
-                                   [loc[0] * COARSE + ow - 1, loc[1] * COARSE + oh - 1]], np.float32),
+        c = _orig_to_rot(np.array([[loc[0] * COARSE_FULL, loc[1] * COARSE_FULL],
+                                   [loc[0] * COARSE_FULL + ow - 1, loc[1] * COARSE_FULL + oh - 1]], np.float32),
                          gray.shape, m.rotation)
         cx, cy = int(c[:, 0].min()), int(c[:, 1].min())
         # ... only the neighbourhood of the block is rotated (padded where it leaves the frame) ...
         bw, bh = m.block_tpl.shape[1], int(m.block_tpl.shape[0] * max(self.SCALES_Y)) + 1
-        MG = COARSE * 2 + self.line_search + 12
+        MG = COARSE_FULL * 2 + self.line_search + 12
         rot, (lx0, ly0) = _rot_region(gray, m.rotation, cx - MG, cy - MG, cx + bw + MG, cy + bh + MG)
-        # ... then print height (printhead setting / angle changes it) at 1/2 res ...
-        local = cv2.resize(rot, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-        x1 = y1 = 0
+        # ... then print height (printhead setting / angle changes it), all heights at 1/4 res ...
+        local = cv2.resize(rot, None, fx=1.0 / COARSE, fy=1.0 / COARSE, interpolation=cv2.INTER_AREA)
         best = (-1.0, 1.0, MG, MG)
-
-        def try_scale(sy_):
-            nonlocal best
-            tpl = self._scaled(sy_)["block_half"]
+        for sy_ in self.SCALES_Y:
+            tpl = self._scaled(sy_)["block_quarter"]
             if tpl.shape[0] > local.shape[0] or tpl.shape[1] > local.shape[1]:
-                return
+                continue
             rr_ = cv2.matchTemplate(local, tpl, cv2.TM_CCOEFF_NORMED)
             _, mx, _, l2 = cv2.minMaxLoc(rr_)
             if mx > best[0]:
-                best = (float(mx), sy_, x1 + 2 * l2[0], y1 + 2 * l2[1])
-
-        # consecutive cartons share the printhead setting: try the last scale and its neighbours first
-        i0 = self.SCALES_Y.index(self._last_sy) if self._last_sy in self.SCALES_Y else self.SCALES_Y.index(1.0)
-        near = [self.SCALES_Y[i] for i in (i0 - 1, i0, i0 + 1) if 0 <= i < len(self.SCALES_Y)]
-        for s_ in near:
-            try_scale(s_)
-        if best[0] < 0.75 or best[1] != self._last_sy:
-            for s_ in self.SCALES_Y:
-                if s_ not in near:
-                    try_scale(s_)
+                best = (float(mx), sy_, COARSE * l2[0], COARSE * l2[1])
         _, sy, gx, gy = best
         self._last_sy = sy
         S = self._scaled(sy)
         # ... and full-resolution refinement
-        score, bx, by = _match(rot, S["block"], gx, gy, 3)
+        score, bx, by = _match(rot, S["block"], gx, gy, COARSE // 2 + 1)
         res.block_score = round(score, 3)
         res.block_offset = (int(bx + lx0 - m.block_rect[0]), int(by + ly0 - m.block_rect[1]))
         t2 = time.perf_counter()
         if score < self.block_threshold:
-            res.reasons.append(f"print block not found (score {score:.2f})")
+            res.reasons.append(f"print not found or not like the taught sample - missing print, "
+                               f"wrong product / batch (match {score:.2f})")
             res.timings_ms = {"total": round((time.perf_counter() - t0) * 1000, 2)}
             return res
         # printed lines partly outside the camera view cannot be verified (trigger / position issue)
@@ -436,6 +436,9 @@ class FastVerifier:
         blk_w, blk_h = S["block_size"]
         blk = rot[by:by + blk_h, bx:bx + blk_w]
         thr_t = self._ink_threshold(blk) if blk.size else m.ink_threshold
+        # ink of the whole neighbourhood once (per-character windows are slices of it)
+        ink_all = _ink(rot, thr_t)
+        dil_all = cv2.dilate(ink_all, S["kernel"])
 
         # 2-3. lines -> character windows: correlation + ink difference against the golden print
         for L in S["lines"]:
@@ -453,10 +456,10 @@ class FastVerifier:
                 s, mx, my = _match(rot, tpl, int(round(bx + wx1 + ox)), int(round(by + wy1 + oy)),
                                    self.window_search)
                 th, tw = tpl.shape[:2]
-                patch = rot[my:my + th, mx:mx + tw]
+                t_ink = ink_all[my:my + th, mx:mx + tw]
                 extra = missing = 1.0
-                if patch.shape == tpl.shape:
-                    extra, missing = _ink_diff(patch, thr_t, gink, gdil, gsum, S["kernel"])
+                if t_ink.shape == tpl.shape:
+                    extra, missing = _ink_diff(t_ink, dil_all[my:my + th, mx:mx + tw], gink, gdil, gsum)
                 diff = max(extra, missing)
                 if s < worst_s:
                     worst_s = s
